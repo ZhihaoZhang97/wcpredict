@@ -115,6 +115,12 @@ _SPECS: dict[str, ProviderSpec] = {
         base_url="https://api.minimax.io/v1",
         structured_output_method="function_calling",
     ),
+    # json_mode, not function_calling: DeepSeek's thinking mode (the
+    # reasoner alias and thinking-enabled models like deepseek-v4-pro)
+    # rejects tool calls outright ("Thinking mode does not support this
+    # tool_choice") but does support JSON output — see
+    # https://api-docs.deepseek.com/guides/reasoning_model. json_mode
+    # requires the schema in the prompt; nodes.predict appends it.
     "deepseek": ProviderSpec(
         name="deepseek",
         default_model="deepseek-chat",
@@ -123,7 +129,7 @@ _SPECS: dict[str, ProviderSpec] = {
         base_url="https://api.deepseek.com/v1",
         reasoning_model="deepseek-reasoner",
         reasoning_max_tokens=65536,
-        structured_output_method="function_calling",
+        structured_output_method="json_mode",
     ),
 }
 

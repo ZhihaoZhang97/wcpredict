@@ -12,6 +12,7 @@ from __future__ import annotations
 import time
 from typing import Optional
 
+from langchain_core.exceptions import OutputParserException
 from langchain_core.language_models import BaseChatModel
 from langgraph.types import Send
 
@@ -181,8 +182,11 @@ def predict(
     avoid the default forced tool call (forced tool choice is
     incompatible with thinking, and the thinking is what stops
     degenerate outputs); "function_calling" for OpenAI-compatible
-    providers whose endpoints lack json_schema response formats. None
-    keeps the integration's default.
+    providers whose endpoints lack json_schema response formats;
+    "json_mode" for providers whose reasoning mode rejects tool calls
+    entirely (DeepSeek) — plain JSON output constrained only by the
+    schema instructions appended to the prompt. None keeps the
+    integration's default.
     """
     method_kwargs = (
         {"method": structured_output_method} if structured_output_method else {}
@@ -238,5 +242,22 @@ def predict(
         "=== Scout briefing (web research) ===\n"
         + "\n\n".join(state["research_notes"])
     )
-    prediction = predictor.invoke(prompt)
+    if structured_output_method == "json_mode":
+        # json_mode only constrains the output to be valid JSON; the
+        # schema itself must live in the prompt. Same instructions the
+        # parser inside with_structured_output validates against.
+        from langchain_core.output_parsers import PydanticOutputParser
+
+        instructions = PydanticOutputParser(
+            pydantic_object=MatchPrediction
+        ).get_format_instructions()
+        prompt += f"\n\n{instructions}"
+    try:
+        prediction = predictor.invoke(prompt)
+    except OutputParserException:
+        if structured_output_method != "json_mode":
+            raise
+        # DeepSeek documents that JSON mode "may occasionally return
+        # empty content"; one retry is usually enough.
+        prediction = predictor.invoke(prompt)
     return {"prediction": prediction}
