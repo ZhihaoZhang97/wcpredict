@@ -15,16 +15,33 @@ jobs:
         run: uv sync --frozen
       - name: Data-layer sanity harness
         run: uv run python -m wcpredict.check
-      - name: Agent imports and graph builds
+      - name: Agent imports and graph builds (every LLM provider)
         run: |
           uv run python - <<'EOF'
           import os
-          os.environ.setdefault("ANTHROPIC_API_KEY", "sk-ant-dummy-ci")
           from wcpredict.datastore import DataStore
           from wcpredict.agent import build_graph
+          from wcpredict.agent.llm import PROVIDERS, resolve_provider
+
+          # Dummy keys: constructing a chat model must not call any API.
+          for name in PROVIDERS:
+              os.environ.setdefault(resolve_provider(name).api_key_env, "dummy-ci-key")
+
           class FakeSearch:
               def search(self, q, max_results=3): return "x"
-          app = build_graph(DataStore("data"), search_provider=FakeSearch())
-          assert "predict" in app.get_graph().nodes
-          print("graph OK")
+
+          store = DataStore("data")
+          for name in PROVIDERS:
+              app = build_graph(store, search_provider=FakeSearch(), llm_provider=name)
+              assert "predict" in app.get_graph().nodes
+              print(f"graph OK ({name})")
+
+          # The CLI hardcodes provider choices to keep parser construction
+          # free of agent imports — make sure the list matches the registry.
+          import wcpredict.__main__ as cli
+          import inspect
+          src = inspect.getsource(cli.main)
+          missing = [p for p in PROVIDERS if f'"{p}"' not in src]
+          assert not missing, f"CLI --provider choices missing: {missing}"
+          print("CLI provider choices in sync")
           EOF
