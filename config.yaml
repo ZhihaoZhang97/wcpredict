@@ -1,0 +1,47 @@
+# Central configuration for wcpredict, loaded by wcpredict/config.py.
+#
+# The loader is stdlib-only (sync and the data-layer commands must run
+# with plain python3), so this file sticks to a simple YAML subset:
+# nested two-space-indented mappings, scalar values, lists of scalars,
+# and comments. No anchors, multi-line strings or flow collections.
+
+llm:
+  model: claude-opus-4-8
+  # Per-attempt cap in seconds. Streaming keeps bytes flowing on long
+  # condense/predict calls so a wedged connection fails fast (instead
+  # of hanging for the SDK's 10-minute default, x3 attempts).
+  request_timeout_s: 240
+  max_retries: 2
+  # Output cap for the non-reasoning (condense) calls.
+  condense_max_tokens: 8000
+  # Thinking tokens count against max_tokens, hence the higher cap for
+  # the predict call — 128000 is the model's output ceiling; larger
+  # values are rejected by the API.
+  predict_max_tokens: 128000
+  # Reasoning depth for the predict call. "xhigh" spends more thinking
+  # tokens for deeper analysis; "high" equals omitting the parameter.
+  predict_effort: xhigh
+
+search:
+  # Simultaneous HTTP search requests in the per-player fan-out.
+  workers: 16
+  # Search-result snippets fetched per query.
+  results_per_player: 3
+  results_team_news: 5
+
+graph:
+  # Cap on simultaneous LLM API calls (the search fan-out is plain HTTP
+  # and governed separately by search.workers).
+  max_concurrency: 6
+
+sync:
+  # Upstream for data/ — openfootball/worldcup.json 2026 files (CC0).
+  upstream: https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026
+  timeout_s: 30
+  files:
+    - worldcup.json
+    - worldcup.squads.json
+    - worldcup.teams.json
+    - worldcup.quali_playoffs.json
+    - worldcup.groups.json
+    - worldcup.stadiums.json

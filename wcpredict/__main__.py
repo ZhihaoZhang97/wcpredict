@@ -78,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         default=None,
         metavar="N",
-        help="cap on simultaneous research API calls (default: 6)",
+        help="cap on simultaneous research API calls (default: graph.max_concurrency in config.yaml)",
     )
     p_pred.add_argument(
         "--no-sync",

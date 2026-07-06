@@ -13,6 +13,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+from .config import DEFAULT_CONFIG_PATH, load_config
 from .datastore import DataStore
 from .features import squad_stats, team_form, team_report
 from .models import DECIDED_PENALTIES, STAGE_GROUP, STAGE_QUALIFYING_PLAYOFF
@@ -30,6 +31,34 @@ def check(label: str, condition: bool, detail: str = "") -> None:
 def main() -> int:
     data_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent.parent / "data"
     store = DataStore(data_dir)
+
+    print("config")
+    cfg = load_config()
+    expected_keys = {
+        "llm": {"model", "request_timeout_s", "max_retries", "condense_max_tokens",
+                "predict_max_tokens", "predict_effort"},
+        "search": {"workers", "results_per_player", "results_team_news"},
+        "graph": {"max_concurrency"},
+        "sync": {"upstream", "timeout_s", "files"},
+    }
+    for name, keys in expected_keys.items():
+        missing = keys - set(cfg.get(name) or {})
+        check(f"config.yaml has {name} section", not missing, f"missing {sorted(missing)}")
+    check(
+        "sync.files covers the files the datastore reads",
+        {"worldcup.json", "worldcup.squads.json", "worldcup.teams.json",
+         "worldcup.quali_playoffs.json"} <= set(cfg["sync"]["files"]),
+    )
+    try:
+        # The stdlib loader only speaks a YAML subset; when PyYAML is
+        # around (it comes with the agent deps), confirm both read the
+        # file identically so the subset never silently drifts.
+        import yaml
+    except ImportError:
+        pass
+    else:
+        full = yaml.safe_load(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"))
+        check("config.yaml parses identically under PyYAML", cfg == full)
 
     print("registry")
     check("48 teams loaded", len(store.teams) == 48, f"got {len(store.teams)}")

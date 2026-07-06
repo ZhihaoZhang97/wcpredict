@@ -120,12 +120,19 @@ the agent honestly against it.
 team/scorer resolution, score-shape normalization, as-of filtering, and
 feature invariants against the real data files.
 
+Runtime settings — the Claude model, request timeouts, token caps,
+search fan-out sizes and the data-sync source — live in `config.yaml`
+rather than in the Python modules; edit it and rerun, no code changes
+needed. The check harness validates the file's structure.
+
 Project layout:
 
 ```
+config.yaml            central settings (model, timeouts, fan-out sizes, sync)
 data/                  tournament JSON (synced from openfootball)
 scripts/sync_data.py   upstream data sync
 wcpredict/
+  config.py            config.yaml loader (stdlib-only YAML subset)
   datastore.py         loads + indexes the JSON, canonical match model
   normalizer.py        five raw score shapes → one schema
   resolver.py          fuzzy team input, scorer-to-squad matching

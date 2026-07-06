@@ -1,7 +1,8 @@
 """Sync data/ with the upstream openfootball/worldcup.json 2026 files.
 
-Stdlib only. Used by scripts/sync_data.py (manual / CI) and by the
-predict CLI, which syncs before every prediction so results are current.
+Stdlib only (config.py included). Used by scripts/sync_data.py (manual /
+CI) and by the predict CLI, which syncs before every prediction so
+results are current.
 
 Data source: https://github.com/openfootball/worldcup.json (CC0).
 """
@@ -13,19 +14,16 @@ import sys
 import urllib.request
 from pathlib import Path
 
-UPSTREAM = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026"
-FILES = [
-    "worldcup.json",
-    "worldcup.squads.json",
-    "worldcup.teams.json",
-    "worldcup.quali_playoffs.json",
-    "worldcup.groups.json",
-    "worldcup.stadiums.json",
-]
+from .config import section
+
+_SYNC = section("sync")
+UPSTREAM = _SYNC["upstream"]
+FILES = list(_SYNC["files"])
+DEFAULT_TIMEOUT_S = _SYNC["timeout_s"]
 DEFAULT_DATA_DIR = Path(__file__).parent.parent / "data"
 
 
-def sync_files(data_dir: Path = DEFAULT_DATA_DIR, timeout: int = 30) -> list[str]:
+def sync_files(data_dir: Path = DEFAULT_DATA_DIR, timeout: int = DEFAULT_TIMEOUT_S) -> list[str]:
     """Download the upstream files; return the names that changed.
 
     Raises OSError on network failure and ValueError on invalid upstream
