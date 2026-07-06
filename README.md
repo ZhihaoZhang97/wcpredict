@@ -58,10 +58,11 @@ cp .env.example .env   # add ANTHROPIC_API_KEY and TAVILY_API_KEY
 ### Choosing an LLM
 
 `predict` uses Claude by default. Pick another provider with
-`--provider` (or set `WCPREDICT_LLM_PROVIDER` in `.env`) and put that
-provider's API key in `.env` — see `.env.example` for the variable
-names. `--model` (or `WCPREDICT_LLM_MODEL`) overrides the provider's
-default model.
+`--provider`, `WCPREDICT_LLM_PROVIDER` in `.env`, or `llm.provider` in
+`config.yaml` (that order wins), and put that provider's API key in
+`.env` — see `.env.example` for the variable names. `--model`
+(`WCPREDICT_LLM_MODEL` / `llm.model` in `config.yaml`) overrides the
+provider's default model.
 
 | Provider | Default model | Key variable |
 |---|---|---|
@@ -120,15 +121,16 @@ the agent honestly against it.
 team/scorer resolution, score-shape normalization, as-of filtering, and
 feature invariants against the real data files.
 
-Runtime settings — the Claude model, request timeouts, token caps,
-search fan-out sizes and the data-sync source — live in `config.yaml`
-rather than in the Python modules; edit it and rerun, no code changes
-needed. The check harness validates the file's structure.
+Runtime settings — the default LLM provider and model, request
+timeouts, token caps, search fan-out sizes and the data-sync source —
+live in `config.yaml` rather than in the Python modules; edit it and
+rerun, no code changes needed. The check harness validates the file's
+structure.
 
 Project layout:
 
 ```
-config.yaml            central settings (model, timeouts, fan-out sizes, sync)
+config.yaml            central settings (provider, timeouts, fan-out sizes, sync)
 data/                  tournament JSON (synced from openfootball)
 scripts/sync_data.py   upstream data sync
 wcpredict/

@@ -6,20 +6,24 @@
 # and comments. No anchors, multi-line strings or flow collections.
 
 llm:
-  model: claude-opus-4-8
+  # Provider used when neither --provider nor WCPREDICT_LLM_PROVIDER is
+  # given: anthropic, deepseek, gemini, glm, minimax, openai or qwen.
+  # Endpoints, key variables and per-provider quirks live in
+  # wcpredict/agent/llm.py.
+  provider: anthropic
+  # null = the provider's default model (see the README table);
+  # --model and WCPREDICT_LLM_MODEL override.
+  model: null
   # Per-attempt cap in seconds. Streaming keeps bytes flowing on long
   # condense/predict calls so a wedged connection fails fast (instead
   # of hanging for the SDK's 10-minute default, x3 attempts).
   request_timeout_s: 240
   max_retries: 2
-  # Output cap for the non-reasoning (condense) calls.
+  # Output cap for the non-reasoning (condense) calls, any provider.
+  # The reasoning (predict) call's cap is per-provider, in llm.py.
   condense_max_tokens: 8000
-  # Thinking tokens count against max_tokens, hence the higher cap for
-  # the predict call — 128000 is the model's output ceiling; larger
-  # values are rejected by the API.
-  predict_max_tokens: 128000
-  # Reasoning depth for the predict call. "xhigh" spends more thinking
-  # tokens for deeper analysis; "high" equals omitting the parameter.
+  # Reasoning depth for Anthropic's adaptive thinking on the predict
+  # call. "xhigh" spends more thinking tokens for deeper analysis.
   predict_effort: xhigh
 
 search:

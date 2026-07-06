@@ -35,8 +35,8 @@ def main() -> int:
     print("config")
     cfg = load_config()
     expected_keys = {
-        "llm": {"model", "request_timeout_s", "max_retries", "condense_max_tokens",
-                "predict_max_tokens", "predict_effort"},
+        "llm": {"provider", "model", "request_timeout_s", "max_retries",
+                "condense_max_tokens", "predict_effort"},
         "search": {"workers", "results_per_player", "results_team_news"},
         "graph": {"max_concurrency"},
         "sync": {"upstream", "timeout_s", "files"},
