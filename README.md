@@ -1,0 +1,118 @@
+# wcpredict — World Cup 2026 match prediction agent
+
+An AI agent that predicts FIFA World Cup 2026 matches. Type in two teams
+and a stage; it gathers each team's tournament history from local data,
+researches all 52 squad players with live web search, and produces a
+structured prediction — winner, scoreline, expected goals, and outcome
+probabilities — with an analyst's reasoning.
+
+Built with [LangGraph](https://langchain-ai.github.io/langgraph/) and
+[Claude](https://www.anthropic.com/claude), on match data from
+[openfootball/worldcup.json](https://github.com/openfootball/worldcup.json).
+
+```
+$ uv run python -m wcpredict predict mexico england --stage "round of 16"
+
+Mexico vs England — round of 16
+prediction: England win, 1:2 after 90' (regulation)
+expected goals: Mexico 1.2 · England 1.5
+probabilities: Mexico 31% · draw 28% · England 41%
+...
+```
+
+## How it works
+
+```
+START → gather_data → run_searches ══Send══> condense (×2, parallel)
+                                                  │
+                                               predict → END
+```
+
+| Node | What it does |
+|---|---|
+| `gather_data` | No LLM. Resolves free-text team names ("korea", "NED", "Czechia"), renders each team's 2026 report — match history with how each game was decided, full squad with per-player goal events — plus head-to-head. |
+| `run_searches` | No LLM. Fires one web search per player (all 26 per team) plus team news, ~54 queries in parallel via [Tavily](https://tavily.com). |
+| `condense` | One Claude call per team (parallel): raw snippets → scout briefing. |
+| `predict` | Claude with adaptive thinking at `xhigh` effort and native structured output: expected goals first, then the most likely score conditional on the predicted path. |
+
+The data layer is independent of the agent: a canonical match model
+normalizes the five raw score shapes in the source files (regulation,
+extra time, penalties, playoff shorthand, unplayed), resolves goalscorer
+names against squads (100% resolution), and supports `--as-of` for
+leak-free backtesting against played matches.
+
+## Setup
+
+Requires [uv](https://docs.astral.sh/uv/) and Python 3.10+.
+
+```bash
+uv sync
+cp .env.example .env   # add ANTHROPIC_API_KEY and TAVILY_API_KEY
+```
+
+- `ANTHROPIC_API_KEY` — https://console.anthropic.com
+- `TAVILY_API_KEY` — free tier at https://tavily.com (~18 predictions/month)
+
+## Usage
+
+```bash
+# Predict a fixture (calls both APIs)
+uv run python -m wcpredict predict portugal spain --stage "round of 16"
+
+# Stage is free text: "group", "1/4 final", "semi", "final" all work.
+# --trace prints per-node timing and writes a full trace to traces/
+uv run python -m wcpredict predict france morocco --stage "1/4 final" --trace
+
+# Backtest view: only data from before the given date is used
+uv run python -m wcpredict predict mexico england --stage "round of 16" --as-of 2026-07-05
+
+# Local data commands (no API keys needed)
+python3 -m wcpredict team germany
+python3 -m wcpredict h2h portugal spain
+```
+
+## Data
+
+The `data/` folder carries the 2026 tournament files from
+[openfootball/worldcup.json](https://github.com/openfootball/worldcup.json)
+(public domain, CC0). As the tournament progresses, sync the latest
+results and validate:
+
+```bash
+python3 scripts/sync_data.py
+uv run python -m wcpredict.check
+```
+
+A GitHub Action (`.github/workflows/sync-data.yml`) does this daily and
+commits changes automatically.
+
+## Development
+
+`uv run python -m wcpredict.check` runs the data-layer sanity harness:
+team/scorer resolution, score-shape normalization, as-of filtering, and
+feature invariants against the real data files.
+
+Project layout:
+
+```
+data/                  tournament JSON (synced from openfootball)
+scripts/sync_data.py   upstream data sync
+wcpredict/
+  datastore.py         loads + indexes the JSON, canonical match model
+  normalizer.py        five raw score shapes → one schema
+  resolver.py          fuzzy team input, scorer-to-squad matching
+  features.py          team reports, squad stats, as-of filtering
+  check.py             sanity harness
+  agent/
+    graph.py           LangGraph wiring + run_prediction
+    nodes.py           node implementations + prompts
+    search.py          SearchProvider protocol (Tavily default)
+    schema.py          MatchPrediction structured output
+    state.py           pipeline state + stage parsing
+```
+
+## License
+
+Code: [MIT](LICENSE). Match data: public domain
+([CC0](https://github.com/openfootball/worldcup.json/blob/master/LICENSE.md))
+courtesy of the [openfootball](https://github.com/openfootball) project.
