@@ -153,7 +153,13 @@ def _predict(args) -> int:
         print(f"prediction dependencies missing ({exc}); run: uv sync", file=sys.stderr)
         return 1
 
-    spec = resolve_provider(args.provider)
+    # argparse validates --provider, but the WCPREDICT_LLM_PROVIDER
+    # fallback inside resolve_provider can still hold a typo.
+    try:
+        spec = resolve_provider(args.provider)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
     # Anthropic also accepts an OAuth token; every other provider has
     # exactly one key variable.
     has_credentials = os.environ.get(spec.api_key_env) or (
