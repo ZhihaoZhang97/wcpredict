@@ -6,9 +6,11 @@ researches all 52 squad players with live web search, and produces a
 structured prediction — winner, scoreline, expected goals, and outcome
 probabilities — with an analyst's reasoning.
 
-Built with [LangGraph](https://langchain-ai.github.io/langgraph/) and
-[Claude](https://www.anthropic.com/claude), on match data from
+Built with [LangGraph](https://langchain-ai.github.io/langgraph/) on
+match data from
 [openfootball/worldcup.json](https://github.com/openfootball/worldcup.json).
+Runs on [Claude](https://www.anthropic.com/claude) by default, or any of
+OpenAI, Gemini, Qwen, GLM, MiniMax and DeepSeek via `--provider`.
 
 ```
 $ uv run python -m wcpredict predict mexico england --stage "round of 16"
@@ -32,8 +34,8 @@ START → gather_data → run_searches ══Send══> condense (×2, parallel
 |---|---|
 | `gather_data` | No LLM. Resolves free-text team names ("korea", "NED", "Czechia"), renders each team's 2026 report — match history with how each game was decided, full squad with per-player goal events — plus head-to-head. |
 | `run_searches` | No LLM. Fires one web search per player (all 26 per team) plus team news, ~54 queries in parallel via [Tavily](https://tavily.com). |
-| `condense` | One Claude call per team (parallel): raw snippets → scout briefing. |
-| `predict` | Claude with adaptive thinking at `xhigh` effort and native structured output: expected goals first, then the most likely score conditional on the predicted path. |
+| `condense` | One LLM call per team (parallel): raw snippets → scout briefing. |
+| `predict` | LLM with reasoning enabled (adaptive thinking at `xhigh` effort on Claude) and structured output: expected goals first, then the most likely score conditional on the predicted path. |
 
 The data layer is independent of the agent: a canonical match model
 normalizes the five raw score shapes in the source files (regulation,
@@ -52,6 +54,29 @@ cp .env.example .env   # add ANTHROPIC_API_KEY and TAVILY_API_KEY
 
 - `ANTHROPIC_API_KEY` — https://console.anthropic.com
 - `TAVILY_API_KEY` — free tier at https://tavily.com (~18 predictions/month)
+
+### Choosing an LLM
+
+`predict` uses Claude by default. Pick another provider with
+`--provider` (or set `WCPREDICT_LLM_PROVIDER` in `.env`) and put that
+provider's API key in `.env` — see `.env.example` for the variable
+names. `--model` (or `WCPREDICT_LLM_MODEL`) overrides the provider's
+default model.
+
+| Provider | Default model | Key variable |
+|---|---|---|
+| `anthropic` | `claude-opus-4-8` | `ANTHROPIC_API_KEY` |
+| `openai` | `gpt-5.1` | `OPENAI_API_KEY` |
+| `gemini` | `gemini-2.5-pro` | `GOOGLE_API_KEY` |
+| `qwen` | `qwen3-max` | `DASHSCOPE_API_KEY` |
+| `glm` | `glm-4.6` | `ZHIPUAI_API_KEY` |
+| `minimax` | `MiniMax-M2` | `MINIMAX_API_KEY` |
+| `deepseek` | `deepseek-chat` (`deepseek-reasoner` for the predict step) | `DEEPSEEK_API_KEY` |
+
+```bash
+uv run python -m wcpredict predict portugal spain --stage semi --provider deepseek
+uv run python -m wcpredict predict portugal spain --stage semi --provider openai --model gpt-5.2
+```
 
 ## Usage
 
@@ -108,6 +133,7 @@ wcpredict/
   check.py             sanity harness
   agent/
     graph.py           LangGraph wiring + run_prediction
+    llm.py             LLM provider registry (anthropic, openai, ...)
     nodes.py           node implementations + prompts
     search.py          SearchProvider protocol (Tavily default)
     schema.py          MatchPrediction structured output

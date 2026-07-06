@@ -20,6 +20,7 @@ from langgraph.graph import END, START, StateGraph
 
 from ..datastore import DataStore
 from . import nodes
+from .llm import make_llm, resolve_provider
 from .search import SearchProvider, TavilyProvider
 from .state import PipelineState, parse_stage
 
@@ -28,16 +29,25 @@ from .state import PipelineState, parse_stage
 DEFAULT_MAX_CONCURRENCY = 6
 
 
-def build_graph(store: DataStore, search_provider: Optional[SearchProvider] = None):
+def build_graph(
+    store: DataStore,
+    search_provider: Optional[SearchProvider] = None,
+    llm_provider: Optional[str] = None,
+    llm_model: Optional[str] = None,
+):
     provider = search_provider if search_provider is not None else TavilyProvider()
-    llm = nodes.make_llm()
-    predict_llm = nodes.make_llm(reasoning=True)
+    spec = resolve_provider(llm_provider)
+    llm = make_llm(spec, model=llm_model)
+    predict_llm = make_llm(spec, model=llm_model, reasoning=True)
 
     graph = StateGraph(PipelineState)
     graph.add_node("gather_data", partial(nodes.gather_data, store))
     graph.add_node("run_searches", partial(nodes.run_searches, store, provider))
     graph.add_node("condense", partial(nodes.condense, llm))
-    graph.add_node("predict", partial(nodes.predict, predict_llm))
+    graph.add_node(
+        "predict",
+        partial(nodes.predict, predict_llm, spec.structured_output_method),
+    )
 
     graph.add_edge(START, "gather_data")
     graph.add_edge("gather_data", "run_searches")
@@ -58,6 +68,8 @@ def run_prediction(
     on_step=None,
     max_concurrency: int = DEFAULT_MAX_CONCURRENCY,
     search_provider: Optional[SearchProvider] = None,
+    llm_provider: Optional[str] = None,
+    llm_model: Optional[str] = None,
 ) -> PipelineState:
     """Convenience entry point: free-text teams and stage in, final state out.
 
@@ -65,7 +77,12 @@ def run_prediction(
     each node finishes — the hook the CLI's --trace flag uses. Without it
     the graph runs as a single opaque invoke.
     """
-    app = build_graph(store, search_provider=search_provider)
+    app = build_graph(
+        store,
+        search_provider=search_provider,
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+    )
     config = {"max_concurrency": max_concurrency}
     inputs: PipelineState = {
         "team1_text": team1,

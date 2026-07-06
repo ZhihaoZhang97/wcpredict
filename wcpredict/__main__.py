@@ -5,8 +5,9 @@
     uv run python -m wcpredict predict <team1> <team2> --stage "round of 16"
 
 Team names are free text — "korea", "NED" and "Czechia" all resolve.
-The predict command calls the Claude API (needs credentials) and the
-langgraph/langchain-anthropic dependencies (`uv sync`).
+The predict command calls an LLM API (Claude by default; pick another
+with --provider) and needs credentials plus the langgraph/langchain
+dependencies (`uv sync`).
 """
 
 from __future__ import annotations
@@ -23,9 +24,10 @@ _DEFAULT_DATA_DIR = _PROJECT_DIR / "data"
 
 
 def _load_dotenv() -> None:
-    # Pick up ANTHROPIC_API_KEY from the project's .env regardless of cwd.
-    # Optional: only the predict command needs it, and dotenv may not be
-    # installed when running the data-layer commands with plain python3.
+    # Pick up the LLM/search API keys from the project's .env regardless
+    # of cwd. Optional: only the predict command needs it, and dotenv may
+    # not be installed when running the data-layer commands with plain
+    # python3.
     try:
         from dotenv import load_dotenv
     except ImportError:
@@ -47,11 +49,25 @@ def main(argv: list[str] | None = None) -> int:
     p_h2h.add_argument("team2")
     p_h2h.add_argument("--as-of", dest="as_of", default=None, metavar="YYYY-MM-DD")
 
-    p_pred = sub.add_parser("predict", help="AI prediction for a fixture (calls the Claude API)")
+    p_pred = sub.add_parser("predict", help="AI prediction for a fixture (calls an LLM API)")
     p_pred.add_argument("team1")
     p_pred.add_argument("team2")
     p_pred.add_argument("--stage", required=True, help="e.g. 'group', 'round of 16', '1/4 final', 'final'")
     p_pred.add_argument("--as-of", dest="as_of", default=None, metavar="YYYY-MM-DD")
+    # Choices duplicated from agent.llm.PROVIDERS so that building the
+    # parser never imports the agent dependencies (team/h2h must work
+    # without them); CI checks the two lists stay in sync.
+    p_pred.add_argument(
+        "--provider",
+        choices=["anthropic", "deepseek", "gemini", "glm", "minimax", "openai", "qwen"],
+        default=None,
+        help="LLM provider (default: WCPREDICT_LLM_PROVIDER or anthropic)",
+    )
+    p_pred.add_argument(
+        "--model",
+        default=None,
+        help="override the provider's default model (or set WCPREDICT_LLM_MODEL)",
+    )
     p_pred.add_argument(
         "--trace",
         action="store_true",
@@ -129,10 +145,24 @@ def _predict(args) -> int:
     if guard is not None:
         return guard
 
-    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+    # Lazy import: team/h2h/check must keep working without the agent deps.
+    try:
+        from .agent import parse_stage, run_prediction
+        from .agent.llm import resolve_provider
+    except ImportError as exc:
+        print(f"prediction dependencies missing ({exc}); run: uv sync", file=sys.stderr)
+        return 1
+
+    spec = resolve_provider(args.provider)
+    # Anthropic also accepts an OAuth token; every other provider has
+    # exactly one key variable.
+    has_credentials = os.environ.get(spec.api_key_env) or (
+        spec.name == "anthropic" and os.environ.get("ANTHROPIC_AUTH_TOKEN")
+    )
+    if not has_credentials:
         print(
-            "no Anthropic credentials found — copy .env.example to .env and "
-            "set ANTHROPIC_API_KEY (or export it in your shell)",
+            f"no {spec.name} credentials found — copy .env.example to .env and "
+            f"set {spec.api_key_env} (get a key at {spec.key_url})",
             file=sys.stderr,
         )
         return 1
@@ -142,13 +172,6 @@ def _predict(args) -> int:
             "get a free key at tavily.com and add it to .env",
             file=sys.stderr,
         )
-        return 1
-
-    # Lazy import: team/h2h/check must keep working without the agent deps.
-    try:
-        from .agent import parse_stage, run_prediction
-    except ImportError as exc:
-        print(f"prediction dependencies missing ({exc}); run: uv sync", file=sys.stderr)
         return 1
 
     try:
@@ -164,7 +187,8 @@ def _predict(args) -> int:
         extra["max_concurrency"] = args.max_concurrency
     state = run_prediction(
         store, args.team1, args.team2, args.stage,
-        as_of_date=args.as_of, on_step=on_step, **extra,
+        as_of_date=args.as_of, on_step=on_step,
+        llm_provider=args.provider, llm_model=args.model, **extra,
     )
     if args.trace:
         print(f"trace written to {_write_trace(args, state)}")

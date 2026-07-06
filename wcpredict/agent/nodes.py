@@ -1,16 +1,18 @@
 """Node implementations for the prediction graph.
 
-Each node takes its dependencies (DataStore, SearchProvider,
-ChatAnthropic) as explicit first arguments; graph.py binds them with
+Each node takes its dependencies (DataStore, SearchProvider, chat
+model) as explicit first arguments; graph.py binds them with
 functools.partial when wiring the graph. Nothing in this module knows
-about edges or execution order.
+about edges or execution order. Chat models are built by llm.py so the
+nodes work with any provider.
 """
 
 from __future__ import annotations
 
 import time
+from typing import Optional
 
-from langchain_anthropic import ChatAnthropic
+from langchain_core.language_models import BaseChatModel
 from langgraph.types import Send
 
 from ..datastore import DataStore
@@ -19,44 +21,9 @@ from .schema import MatchPrediction
 from .search import SearchProvider, search_many
 from .state import CondenseTask, PipelineState
 
-MODEL = "claude-opus-4-8"
-
 # Search-result snippets fetched per query.
 RESULTS_PER_PLAYER = 3
 RESULTS_TEAM_NEWS = 5
-
-
-# Per-attempt cap. Streaming keeps bytes flowing on long condense/predict
-# calls so a wedged connection fails fast (instead of hanging for the
-# SDK's 10-minute default, x3 attempts).
-REQUEST_TIMEOUT_S = 240
-
-
-# Reasoning depth for the predict call. "xhigh" spends more thinking
-# tokens for deeper analysis; "high" equals omitting the parameter.
-PREDICT_EFFORT = "xhigh"
-
-
-def make_llm(reasoning: bool = False) -> ChatAnthropic:
-    """reasoning=True enables adaptive thinking at PREDICT_EFFORT (used by
-    the predict node: without thinking the model fills the schema by
-    pattern and every close knockout tie collapses to the same
-    1:1-on-penalties archetype). Thinking tokens count against
-    max_tokens, hence the higher cap — 128000 is the model's output
-    ceiling; larger values are rejected by the API."""
-    extra = (
-        {"thinking": {"type": "adaptive"}, "effort": PREDICT_EFFORT}
-        if reasoning
-        else {}
-    )
-    return ChatAnthropic(
-        model=MODEL,
-        max_tokens=128000 if reasoning else 8000,
-        streaming=True,
-        default_request_timeout=REQUEST_TIMEOUT_S,
-        max_retries=2,
-        **extra,
-    )
 
 
 # ------------------------------------------------------------ gather_data
@@ -168,7 +135,7 @@ def fan_out_condense(state: PipelineState) -> list[Send]:
 # ---------------------------------------------------------------- condense
 
 
-def condense(llm: ChatAnthropic, task: CondenseTask) -> PipelineState:
+def condense(llm: BaseChatModel, task: CondenseTask) -> PipelineState:
     """One LLM call per team: raw search snippets -> scout briefing."""
     fixture = (
         f"the 2026 World Cup {task['stage'].replace('_', ' ')} match "
@@ -202,14 +169,25 @@ def condense(llm: ChatAnthropic, task: CondenseTask) -> PipelineState:
 # --------------------------------------------------------------- predict
 
 
-def predict(llm: ChatAnthropic, state: PipelineState) -> PipelineState:
+def predict(
+    llm: BaseChatModel,
+    structured_output_method: Optional[str],
+    state: PipelineState,
+) -> PipelineState:
     """Weigh reports + merged research and emit a structured MatchPrediction.
 
-    method="json_schema" (Claude's native structured outputs) instead of
-    the default forced tool call — forced tool choice is incompatible
-    with thinking, and the thinking is what stops degenerate outputs.
+    structured_output_method comes from the provider spec (llm.py):
+    e.g. "json_schema" for Anthropic, whose native structured outputs
+    avoid the default forced tool call (forced tool choice is
+    incompatible with thinking, and the thinking is what stops
+    degenerate outputs); "function_calling" for OpenAI-compatible
+    providers whose endpoints lack json_schema response formats. None
+    keeps the integration's default.
     """
-    predictor = llm.with_structured_output(MatchPrediction, method="json_schema")
+    method_kwargs = (
+        {"method": structured_output_method} if structured_output_method else {}
+    )
+    predictor = llm.with_structured_output(MatchPrediction, **method_kwargs)
     stage = state["stage"]
     if stage == "group":
         stage_rules = (

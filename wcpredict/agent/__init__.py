@@ -1,8 +1,9 @@
-"""LangGraph prediction agent. Import requires langgraph + langchain-anthropic.
+"""LangGraph prediction agent. Import requires langgraph + the langchain
+provider integrations.
 
 Layout: schema.py (prediction output model), state.py (graph state +
-stage parsing), nodes.py (node implementations), graph.py (wiring +
-run_prediction entry point).
+stage parsing), nodes.py (node implementations), llm.py (provider
+registry), graph.py (wiring + run_prediction entry point).
 """
 
 from .graph import build_graph, run_prediction
