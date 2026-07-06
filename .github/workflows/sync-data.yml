@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   sync:
@@ -25,11 +26,21 @@ jobs:
           uv sync --frozen
           uv run python -m wcpredict.check
 
-      - name: Commit changes
+      # main is protected (PRs required, no bypass), so the bot goes
+      # through a PR like everyone else and merges it immediately.
+      - name: Open and merge data PR
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
           git diff --cached --quiet && echo "no data changes" && exit 0
+          branch="data-sync-${{ github.run_id }}"
+          git checkout -b "$branch"
           git commit -m "data: sync from openfootball/worldcup.json"
-          git push
+          git push -u origin "$branch"
+          gh pr create --title "data: sync from openfootball/worldcup.json" \
+            --body "Automated data sync (run ${{ github.run_id }}). Check harness passed in this workflow before the PR was opened." \
+            --base main --head "$branch"
+          gh pr merge "$branch" --squash --delete-branch
