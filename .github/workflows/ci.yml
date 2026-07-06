@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install
+        run: uv sync --frozen
+      - name: Data-layer sanity harness
+        run: uv run python -m wcpredict.check
+      - name: Agent imports and graph builds
+        run: |
+          uv run python - <<'EOF'
+          import os
+          os.environ.setdefault("ANTHROPIC_API_KEY", "sk-ant-dummy-ci")
+          from wcpredict.datastore import DataStore
+          from wcpredict.agent import build_graph
+          class FakeSearch:
+              def search(self, q, max_results=3): return "x"
+          app = build_graph(DataStore("data"), search_provider=FakeSearch())
+          assert "predict" in app.get_graph().nodes
+          print("graph OK")
+          EOF
