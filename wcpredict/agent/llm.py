@@ -85,16 +85,20 @@ _SPECS: dict[str, ProviderSpec] = {
         key_url="https://aistudio.google.com/apikey",
         reasoning_max_tokens=65536,
     ),
-    # DashScope's compat mode only honors thinking flags on streamed
-    # calls and per-model, so we don't force them here; pick a thinking
-    # model via WCPREDICT_LLM_MODEL if you want deeper reasoning.
+    # json_mode, not function_calling: like DeepSeek, Qwen's thinking
+    # mode rejects forced tool choice ("The tool_choice parameter does
+    # not support being set to required or object in thinking mode")
+    # but supports JSON output. DashScope's compat mode only honors
+    # thinking flags on streamed calls and per-model, so we don't force
+    # them here; pick a thinking model via --model / WCPREDICT_LLM_MODEL
+    # for deeper reasoning.
     "qwen": ProviderSpec(
         name="qwen",
         default_model="qwen3-max",
         api_key_env="DASHSCOPE_API_KEY",
         key_url="https://dashscope.console.aliyun.com",
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        structured_output_method="function_calling",
+        structured_output_method="json_mode",
     ),
     "glm": ProviderSpec(
         name="glm",
