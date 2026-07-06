@@ -75,16 +75,19 @@ python3 -m wcpredict h2h portugal spain
 
 The `data/` folder carries the 2026 tournament files from
 [openfootball/worldcup.json](https://github.com/openfootball/worldcup.json)
-(public domain, CC0). As the tournament progresses, sync the latest
-results and validate:
+(public domain, CC0), and stays current three ways:
 
-```bash
-python3 scripts/sync_data.py
-uv run python -m wcpredict.check
-```
+- **every `predict` run syncs first** (skip with `--no-sync`; a failed
+  sync degrades to a warning and uses local data),
+- a GitHub Action (`.github/workflows/sync-data.yml`) syncs every six
+  hours and commits changes,
+- manually: `python3 scripts/sync_data.py`, then
+  `uv run python -m wcpredict.check` to validate.
 
-A GitHub Action (`.github/workflows/sync-data.yml`) does this daily and
-commits changes automatically.
+If the requested fixture already has a result in the data, `predict`
+reports the actual score instead of "predicting" a match whose answer
+is in its own input — rerun with `--as-of <match date>` to backtest
+the agent honestly against it.
 
 ## Development
 

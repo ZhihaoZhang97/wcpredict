@@ -64,13 +64,19 @@ def main(argv: list[str] | None = None) -> int:
         metavar="N",
         help="cap on simultaneous research API calls (default: 6)",
     )
+    p_pred.add_argument(
+        "--no-sync",
+        action="store_true",
+        help="skip syncing data/ from openfootball before predicting",
+    )
 
     args = parser.parse_args(argv)
-    store = DataStore(args.data_dir)
 
     if args.command == "predict":
         _load_dotenv()
-        return _predict(store, args)
+        return _predict(args)
+
+    store = DataStore(args.data_dir)
 
     if args.command == "team":
         try:
@@ -102,8 +108,26 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _predict(store: DataStore, args) -> int:
+def _predict(args) -> int:
     import os
+
+    # Sync BEFORE loading the store so the prediction sees current data —
+    # crucial for detecting fixtures that have already been played.
+    if not args.no_sync:
+        from .sync import sync_files
+
+        try:
+            changed = sync_files(Path(args.data_dir))
+            print(f"data sync: {len(changed)} file(s) updated" if changed else "data sync: up to date")
+        except (OSError, ValueError) as exc:
+            print(f"data sync failed ({exc}) — predicting with local data", file=sys.stderr)
+    store = DataStore(args.data_dir)
+
+    # If this fixture already has a result, don't "predict" it — the
+    # reports would contain the answer and the model would just read it.
+    guard = _already_played_guard(store, args)
+    if guard is not None:
+        return guard
 
     if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
         print(
@@ -163,6 +187,49 @@ def _predict(store: DataStore, args) -> int:
     for factor in p.key_factors:
         print(f"  - {factor}")
     print(f"\nreasoning: {p.reasoning}")
+    return 0
+
+
+def _already_played_guard(store: DataStore, args) -> int | None:
+    """Handle predicting a fixture whose result is already in the data.
+
+    Returns an exit code to stop with, or None to proceed. Runs before
+    any credential check or API call. Backtesting stays possible: an
+    --as-of on or before the match date proceeds with filtered data.
+    """
+    try:
+        from .agent.state import parse_stage
+
+        stage = parse_stage(args.stage)
+    except (ImportError, ValueError):
+        return None  # let the normal path report these
+    team1 = store.resolve_team(args.team1)
+    team2 = store.resolve_team(args.team2)
+    if not (team1 and team2):
+        return None
+
+    played = [
+        m
+        for m in store.get_matches(team=team1.name, played_only=True)
+        if m.involves(team2.name) and m.stage == stage
+    ]
+    if not played:
+        return None
+    match = played[0]
+    if args.as_of and args.as_of <= match.date:
+        print(f"backtest mode: using only data from before {args.as_of}")
+        return None
+
+    summary = _summarize(match, team1.name)
+    result = (
+        f"{team1.name} {summary.score_line} {team2.name}"
+        + (f", {match.winner} won" if match.winner else " (draw)")
+    )
+    print(f"this match has already been played ({match.date}): {result}")
+    print(
+        "to backtest the agent against it, rerun with data from before "
+        f"kickoff:  --as-of {match.date}"
+    )
     return 0
 
 
