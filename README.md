@@ -114,6 +114,12 @@ wcpredict/
     state.py           pipeline state + stage parsing
 ```
 
+## Contributing
+
+`main` is protected: all changes (including the automated data syncs)
+land through pull requests, and CI runs the check harness on every PR.
+Fork or branch, then open a PR against `main`.
+
 ## License
 
 Code: [MIT](LICENSE). Match data: public domain
