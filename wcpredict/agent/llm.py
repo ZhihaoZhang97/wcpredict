@@ -6,8 +6,13 @@ Qwen (DashScope), GLM (Zhipu), MiniMax and DeepSeek all speak the OpenAI
 wire protocol, so they share ChatOpenAI with a custom base_url.
 
 Selection order: explicit argument (CLI --provider/--model) >
-WCPREDICT_LLM_PROVIDER / WCPREDICT_LLM_MODEL env vars > anthropic with
-its default model.
+WCPREDICT_LLM_PROVIDER / WCPREDICT_LLM_MODEL env vars > llm.provider /
+llm.model in config.yaml > the provider's default model.
+
+Tunables (timeouts, token caps, reasoning effort, the default
+provider/model) live in the llm section of config.yaml; the
+provider-integration details below (endpoints, key variables, quirks of
+each API) are code, not config.
 """
 
 from __future__ import annotations
@@ -16,19 +21,24 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-DEFAULT_PROVIDER = "anthropic"
+from ..config import section
+
+_LLM = section("llm")
+
+DEFAULT_PROVIDER = _LLM["provider"]
 
 # Per-attempt cap. Streaming (where the integration supports the flag)
 # keeps bytes flowing on long condense/predict calls so a wedged
 # connection fails fast instead of hanging for the SDK default.
-REQUEST_TIMEOUT_S = 240
+REQUEST_TIMEOUT_S = _LLM["request_timeout_s"]
+
+MAX_RETRIES = _LLM["max_retries"]
 
 # Output cap for the non-reasoning (condense) calls, any provider.
-CONDENSE_MAX_TOKENS = 8000
+CONDENSE_MAX_TOKENS = _LLM["condense_max_tokens"]
 
 # Reasoning depth for Anthropic's adaptive thinking on the predict call.
-# "xhigh" spends more thinking tokens for deeper analysis.
-PREDICT_EFFORT = "xhigh"
+PREDICT_EFFORT = _LLM["predict_effort"]
 
 
 @dataclass(frozen=True)
@@ -158,7 +168,7 @@ def make_llm(spec: ProviderSpec, model: Optional[str] = None, reasoning: bool = 
     collapses to the same 1:1-on-penalties archetype. Where a provider
     has no thinking switch we still take its larger output budget.
     """
-    model = model or os.environ.get("WCPREDICT_LLM_MODEL")
+    model = model or os.environ.get("WCPREDICT_LLM_MODEL") or _LLM["model"]
     if model is None:
         model = spec.reasoning_model if (reasoning and spec.reasoning_model) else spec.default_model
     max_tokens = spec.reasoning_max_tokens if reasoning else CONDENSE_MAX_TOKENS
@@ -172,7 +182,7 @@ def make_llm(spec: ProviderSpec, model: Optional[str] = None, reasoning: bool = 
             max_tokens=max_tokens,
             streaming=True,
             default_request_timeout=REQUEST_TIMEOUT_S,
-            max_retries=2,
+            max_retries=MAX_RETRIES,
             **extra,
         )
 
@@ -183,7 +193,7 @@ def make_llm(spec: ProviderSpec, model: Optional[str] = None, reasoning: bool = 
             model=model,
             max_output_tokens=max_tokens,
             timeout=REQUEST_TIMEOUT_S,
-            max_retries=2,
+            max_retries=MAX_RETRIES,
             **extra,
         )
 
@@ -206,7 +216,7 @@ def make_llm(spec: ProviderSpec, model: Optional[str] = None, reasoning: bool = 
         max_tokens=max_tokens,
         streaming=True,
         timeout=REQUEST_TIMEOUT_S,
-        max_retries=2,
+        max_retries=MAX_RETRIES,
         **kwargs,
         **extra,
     )

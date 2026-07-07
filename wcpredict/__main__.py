@@ -61,12 +61,12 @@ def main(argv: list[str] | None = None) -> int:
         "--provider",
         choices=["anthropic", "deepseek", "gemini", "glm", "minimax", "openai", "qwen"],
         default=None,
-        help="LLM provider (default: WCPREDICT_LLM_PROVIDER or anthropic)",
+        help="LLM provider (default: WCPREDICT_LLM_PROVIDER or llm.provider in config.yaml)",
     )
     p_pred.add_argument(
         "--model",
         default=None,
-        help="override the provider's default model (or set WCPREDICT_LLM_MODEL)",
+        help="override the provider's default model (or WCPREDICT_LLM_MODEL / llm.model in config.yaml)",
     )
     p_pred.add_argument(
         "--trace",
@@ -78,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         default=None,
         metavar="N",
-        help="cap on simultaneous research API calls (default: 6)",
+        help="cap on simultaneous research API calls (default: graph.max_concurrency in config.yaml)",
     )
     p_pred.add_argument(
         "--no-sync",

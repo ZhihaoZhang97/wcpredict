@@ -16,15 +16,18 @@ from langchain_core.exceptions import OutputParserException
 from langchain_core.language_models import BaseChatModel
 from langgraph.types import Send
 
+from ..config import section
 from ..datastore import DataStore
 from ..features import render_team_report, squad_stats, team_report
 from .schema import MatchPrediction
 from .search import SearchProvider, search_many
 from .state import CondenseTask, PipelineState
 
-# Search-result snippets fetched per query.
-RESULTS_PER_PLAYER = 3
-RESULTS_TEAM_NEWS = 5
+# Search-result snippets fetched per query — search.* in config.yaml.
+_SEARCH = section("search")
+
+RESULTS_PER_PLAYER = _SEARCH["results_per_player"]
+RESULTS_TEAM_NEWS = _SEARCH["results_team_news"]
 
 
 # ------------------------------------------------------------ gather_data

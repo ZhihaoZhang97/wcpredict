@@ -12,8 +12,10 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Protocol, Sequence
 
-# Simultaneous HTTP search requests.
-SEARCH_WORKERS = 16
+from ..config import section
+
+# Simultaneous HTTP search requests — search.workers in config.yaml.
+SEARCH_WORKERS = section("search")["workers"]
 
 
 class SearchProvider(Protocol):

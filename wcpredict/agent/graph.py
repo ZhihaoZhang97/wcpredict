@@ -18,6 +18,7 @@ from typing import Optional
 
 from langgraph.graph import END, START, StateGraph
 
+from ..config import section
 from ..datastore import DataStore
 from . import nodes
 from .llm import make_llm, resolve_provider
@@ -25,8 +26,9 @@ from .search import SearchProvider, TavilyProvider
 from .state import PipelineState, parse_stage
 
 # Cap on simultaneous LLM API calls (the search fan-out is plain HTTP and
-# governed separately by search.SEARCH_WORKERS).
-DEFAULT_MAX_CONCURRENCY = 6
+# governed separately by search.workers) — graph.max_concurrency in
+# config.yaml.
+DEFAULT_MAX_CONCURRENCY = section("graph")["max_concurrency"]
 
 
 def build_graph(
