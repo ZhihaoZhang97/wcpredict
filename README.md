@@ -10,7 +10,7 @@ Built with [LangGraph](https://langchain-ai.github.io/langgraph/) on
 match data from
 [openfootball/worldcup.json](https://github.com/openfootball/worldcup.json).
 Runs on [Claude](https://www.anthropic.com/claude) by default, or any of
-OpenAI, Gemini, Qwen, GLM, MiniMax and DeepSeek via `--provider`.
+OpenAI, Gemini, Qwen, GLM, Kimi, MiniMax and DeepSeek via `--provider`.
 
 ```
 $ uv run python -m wcpredict predict mexico england --stage "round of 16"
@@ -71,6 +71,7 @@ provider's default model.
 | `gemini` | `gemini-2.5-pro` | `GOOGLE_API_KEY` |
 | `qwen` | `qwen3-max` | `DASHSCOPE_API_KEY` |
 | `glm` | `glm-4.6` | `ZHIPUAI_API_KEY` |
+| `kimi` | `kimi-k2.6` | `MOONSHOT_API_KEY` |
 | `minimax` | `MiniMax-M2` | `MINIMAX_API_KEY` |
 | `deepseek` | `deepseek-chat` (`deepseek-reasoner` for the predict step) | `DEEPSEEK_API_KEY` |
 
