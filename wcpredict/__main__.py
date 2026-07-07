@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     # without them); CI checks the two lists stay in sync.
     p_pred.add_argument(
         "--provider",
-        choices=["anthropic", "deepseek", "gemini", "glm", "minimax", "openai", "qwen"],
+        choices=["anthropic", "deepseek", "gemini", "glm", "kimi", "minimax", "openai", "qwen"],
         default=None,
         help="LLM provider (default: WCPREDICT_LLM_PROVIDER or anthropic)",
     )

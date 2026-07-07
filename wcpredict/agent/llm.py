@@ -2,8 +2,9 @@
 
 Every provider is exposed as a LangChain chat model so nodes.py stays
 provider-agnostic. Anthropic and Gemini use their native integrations;
-Qwen (DashScope), GLM (Zhipu), MiniMax and DeepSeek all speak the OpenAI
-wire protocol, so they share ChatOpenAI with a custom base_url.
+Qwen (DashScope), GLM (Zhipu), Kimi (Moonshot), MiniMax and DeepSeek all
+speak the OpenAI wire protocol, so they share ChatOpenAI with a custom
+base_url.
 
 Selection order: explicit argument (CLI --provider/--model) >
 WCPREDICT_LLM_PROVIDER / WCPREDICT_LLM_MODEL env vars > anthropic with
@@ -109,6 +110,19 @@ _SPECS: dict[str, ProviderSpec] = {
         reasoning_kwargs={"extra_body": {"thinking": {"type": "enabled"}}},
         reasoning_max_tokens=65536,
         structured_output_method="function_calling",
+    ),
+    # json_mode, not function_calling: Kimi K2.6 thinks by default, and
+    # with thinking enabled tool_choice may only be "auto" or "none" —
+    # forced tool choice is rejected, like DeepSeek and Qwen. json_mode
+    # requires the schema in the prompt; nodes.predict appends it.
+    "kimi": ProviderSpec(
+        name="kimi",
+        default_model="kimi-k2.6",
+        api_key_env="MOONSHOT_API_KEY",
+        key_url="https://platform.moonshot.ai",
+        base_url="https://api.moonshot.ai/v1",
+        reasoning_max_tokens=65536,
+        structured_output_method="json_mode",
     ),
     # MiniMax-M2 reasons by default (interleaved thinking).
     "minimax": ProviderSpec(
