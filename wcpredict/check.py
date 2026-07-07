@@ -47,7 +47,7 @@ def main() -> int:
     check(
         "sync.files covers the files the datastore reads",
         {"worldcup.json", "worldcup.squads.json", "worldcup.teams.json",
-         "worldcup.quali_playoffs.json"} <= set(cfg["sync"]["files"]),
+         "worldcup.quali_playoffs.json"} <= set((cfg.get("sync") or {}).get("files") or []),
     )
     try:
         # The stdlib loader only speaks a YAML subset; when PyYAML is
