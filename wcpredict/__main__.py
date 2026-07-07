@@ -148,7 +148,7 @@ def _predict(args) -> int:
     # Lazy import: team/h2h/check must keep working without the agent deps.
     try:
         from .agent import parse_stage, run_prediction
-        from .agent.llm import resolve_provider
+        from .agent.llm import resolve_model, resolve_provider
     except ImportError as exc:
         print(f"prediction dependencies missing ({exc}); run: uv sync", file=sys.stderr)
         return 1
@@ -197,7 +197,11 @@ def _predict(args) -> int:
         llm_provider=args.provider, llm_model=args.model, **extra,
     )
     if args.trace:
-        print(f"trace written to {_write_trace(args, state)}")
+        # The predict-step model (reasoning=True): that's the one whose
+        # output the trace is about, e.g. deepseek-reasoner not
+        # deepseek-chat.
+        model = resolve_model(spec, args.model, reasoning=True)
+        print(f"trace written to {_write_trace(args, state, model)}")
     p = state["prediction"]
 
     outcome = {
@@ -281,19 +285,26 @@ def _make_step_tracer():
     return on_step
 
 
-def _write_trace(args, state: dict) -> Path:
+def _write_trace(args, state: dict, model: str) -> Path:
     """Dump the full pipeline state to traces/ as a readable markdown file."""
+    import re
     from datetime import datetime
 
     traces_dir = _PROJECT_DIR / "traces"
     traces_dir.mkdir(exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    path = traces_dir / f"{stamp}-{state.get('team1', args.team1)}-vs-{state.get('team2', args.team2)}.md"
+    # Model names are filename-safe (dots/hyphens) except a user-supplied
+    # --model like "org/model"; squash anything else to "-".
+    safe_model = re.sub(r"[^\w.-]+", "-", model)
+    path = traces_dir / (
+        f"{stamp}-{state.get('team1', args.team1)}-vs-"
+        f"{state.get('team2', args.team2)}-{safe_model}.md"
+    )
 
     prediction = state.get("prediction")
     sections = [
         f"# Trace: {state.get('team1')} vs {state.get('team2')} ({state.get('stage')})",
-        f"run at {stamp} · as_of={state.get('as_of_date')} · "
+        f"run at {stamp} · model={model} · as_of={state.get('as_of_date')} · "
         f"inputs: {args.team1!r} / {args.team2!r} / stage={args.stage!r}",
         "\n## Node: gather_data — team1 report\n" + state.get("team1_report", "(missing)"),
         "\n## Node: gather_data — team2 report\n" + state.get("team2_report", "(missing)"),
