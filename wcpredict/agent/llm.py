@@ -174,6 +174,19 @@ def resolve_provider(name: Optional[str] = None) -> ProviderSpec:
         ) from None
 
 
+def resolve_model(spec: ProviderSpec, model: Optional[str] = None, reasoning: bool = False) -> str:
+    """The model name make_llm will use for this spec.
+
+    Explicit argument > WCPREDICT_LLM_MODEL > llm.model in config.yaml >
+    the provider's default (reasoning_model on the predict step where
+    the provider splits chat and reasoning, e.g. DeepSeek).
+    """
+    model = model or os.environ.get("WCPREDICT_LLM_MODEL") or _LLM["model"]
+    if model is None:
+        model = spec.reasoning_model if (reasoning and spec.reasoning_model) else spec.default_model
+    return model
+
+
 def make_llm(spec: ProviderSpec, model: Optional[str] = None, reasoning: bool = False):
     """Build the chat model for one node.
 
@@ -182,9 +195,7 @@ def make_llm(spec: ProviderSpec, model: Optional[str] = None, reasoning: bool = 
     collapses to the same 1:1-on-penalties archetype. Where a provider
     has no thinking switch we still take its larger output budget.
     """
-    model = model or os.environ.get("WCPREDICT_LLM_MODEL") or _LLM["model"]
-    if model is None:
-        model = spec.reasoning_model if (reasoning and spec.reasoning_model) else spec.default_model
+    model = resolve_model(spec, model, reasoning)
     max_tokens = spec.reasoning_max_tokens if reasoning else CONDENSE_MAX_TOKENS
     extra = dict(spec.reasoning_kwargs) if reasoning else {}
 
