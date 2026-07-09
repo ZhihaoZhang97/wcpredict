@@ -130,7 +130,7 @@ _SPECS: dict[str, ProviderSpec] = {
         default_model="kimi-k2.6",
         api_key_env="MOONSHOT_API_KEY",
         key_url="https://platform.moonshot.ai",
-        base_url="https://api.moonshot.ai/v1",
+        base_url="https://api.moonshot.cn/v1",
         reasoning_max_tokens=65536,
         structured_output_method="json_mode",
     ),
