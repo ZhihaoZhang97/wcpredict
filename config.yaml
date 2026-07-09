@@ -7,7 +7,7 @@
 
 llm:
   # Provider used when neither --provider nor WCPREDICT_LLM_PROVIDER is
-  # given: anthropic, deepseek, gemini, glm, minimax, openai or qwen.
+  # given: anthropic, deepseek, gemini, glm, kimi, minimax, openai or qwen.
   # Endpoints, key variables and per-provider quirks live in
   # wcpredict/agent/llm.py.
   provider: anthropic
@@ -17,11 +17,11 @@ llm:
   # Per-attempt cap in seconds. Streaming keeps bytes flowing on long
   # condense/predict calls so a wedged connection fails fast (instead
   # of hanging for the SDK's 10-minute default, x3 attempts).
-  request_timeout_s: 240
+  request_timeout_s: 600
   max_retries: 2
   # Output cap for the non-reasoning (condense) calls, any provider.
   # The reasoning (predict) call's cap is per-provider, in llm.py.
-  condense_max_tokens: 8000
+  condense_max_tokens: 32000
   # Reasoning depth for Anthropic's adaptive thinking on the predict
   # call. "xhigh" spends more thinking tokens for deeper analysis.
   predict_effort: xhigh
@@ -36,7 +36,7 @@ search:
 graph:
   # Cap on simultaneous LLM API calls (the search fan-out is plain HTTP
   # and governed separately by search.workers).
-  max_concurrency: 6
+  max_concurrency: 10
 
 sync:
   # Upstream for data/ — openfootball/worldcup.json 2026 files (CC0).

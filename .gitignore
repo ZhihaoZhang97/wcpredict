@@ -6,8 +6,8 @@
 __pycache__/
 *.pyc
 
-# local debug traces (may contain full prompts/research text)
-traces/
-
 # local assistant/tooling config
 .claude/
+
+# backtest will be ignored
+backtest
