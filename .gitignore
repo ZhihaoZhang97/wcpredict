@@ -9,5 +9,8 @@ __pycache__/
 # local assistant/tooling config
 .claude/
 
+# macOS
+.DS_Store
+
 # backtest will be ignored
 backtest
