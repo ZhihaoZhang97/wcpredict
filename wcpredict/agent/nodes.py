@@ -159,15 +159,10 @@ def condense(llm: BaseChatModel, task: CondenseTask) -> PipelineState:
         f"{task['material']}"
     )
     response = llm.invoke(prompt)
-    if isinstance(response.content, str):
-        text = response.content
-    else:
-        text = "\n".join(
-            block["text"]
-            for block in response.content
-            if isinstance(block, dict) and block.get("type") == "text"
-        )
-    return {"research_notes": [f"### {task['team']} — scout briefing\n{text}"]}
+    # response.text, not manual block filtering: models that think by
+    # default (claude-fable-5) stream mixed content — thinking dicts plus
+    # bare text strings — and a type=="text" filter drops the strings.
+    return {"research_notes": [f"### {task['team']} — scout briefing\n{response.text}"]}
 
 
 # --------------------------------------------------------------- predict
