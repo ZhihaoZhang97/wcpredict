@@ -1,5 +1,9 @@
 # wcpredict — World Cup 2026 match prediction agent
 
+> **Notice:** This repository is an AI benchmark for comparing how well
+> different LLMs reason over the same evidence. It is not betting advice —
+> do not use its predictions to gamble on football.
+
 An AI agent that predicts FIFA World Cup 2026 matches. Type in two teams
 and a stage; it gathers each team's tournament history from local data,
 researches all 52 squad players with live web search, and produces a
